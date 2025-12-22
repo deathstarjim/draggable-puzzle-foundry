@@ -23,6 +23,57 @@ function isImageFile(file)
     return /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name);
 }
 
+function getDocumentImage(doc)
+{
+    if (!doc) return "";
+
+    // Most documents
+    const direct = doc.img;
+    if (typeof direct === "string" && direct.trim()) return direct.trim();
+
+    // Actors often have a token texture
+    const tokenTex = doc.prototypeToken?.texture?.src;
+    if (typeof tokenTex === "string" && tokenTex.trim()) return tokenTex.trim();
+
+    // Some documents may expose texture directly
+    const texture = doc.texture?.src;
+    if (typeof texture === "string" && texture.trim()) return texture.trim();
+
+    return "";
+}
+
+async function resolveDroppedDocument(raw)
+{
+    if (!raw) return null;
+
+    let data;
+    try { data = JSON.parse(raw); } catch { return null; }
+
+    const uuid = data?.uuid ?? data?.documentUuid ?? null;
+    if (uuid && typeof uuid === "string")
+    {
+        try { return await fromUuid(uuid); } catch { return null; }
+    }
+
+    // Compendium drops sometimes provide pack + id
+    const pack = data?.pack;
+    const id = data?.id;
+    if (pack && id)
+    {
+        try
+        {
+            const collection = game.packs?.get?.(pack);
+            if (!collection) return null;
+            return await collection.getDocument(id);
+        } catch
+        {
+            return null;
+        }
+    }
+
+    return null;
+}
+
 function parseSolutionText(text)
 {
     return String(text ?? "")
@@ -141,7 +192,7 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         // Drag-drop: allow dropping onto the whole tile card (not just the image row)
         htmlElement.querySelectorAll("[data-tile-drop]").forEach(tileCard =>
         {
-            tileCard.addEventListener("dragover", e => e.preventDefault());
+            tileCard.addEventListener("dragover", e => e.preventDefault(), { capture: true });
             tileCard.addEventListener("dragenter", () => tileCard.classList.add("dp-config__tile--dragover"));
             tileCard.addEventListener("dragleave", (event) =>
             {
@@ -154,7 +205,7 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             {
                 tileCard.classList.remove("dp-config__tile--dragover");
                 void this._onDropImage(tileCard, event);
-            });
+            }, { capture: true });
 
             // Also make the image row clickable to browse (bigger click target)
             const imageRow = tileCard.querySelector(".dp-config__image-drop");
@@ -179,7 +230,7 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         const newTileCard = htmlElement.querySelector("[data-new-tile-drop]");
         if (newTileCard)
         {
-            newTileCard.addEventListener("dragover", e => e.preventDefault());
+            newTileCard.addEventListener("dragover", e => e.preventDefault(), { capture: true });
             newTileCard.addEventListener("dragenter", () => newTileCard.classList.add("dp-config__tile--dragover"));
             newTileCard.addEventListener("dragleave", (event) =>
             {
@@ -191,7 +242,7 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             {
                 newTileCard.classList.remove("dp-config__tile--dragover");
                 void this._onDropNewTile(newTileCard, event);
-            });
+            }, { capture: true });
 
             const imageRow = newTileCard.querySelector("[data-new-tile-image]");
             if (imageRow)
@@ -625,29 +676,21 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         const raw = event.dataTransfer?.getData("text/plain");
         if (raw)
         {
-            try
+            const doc = await resolveDroppedDocument(raw);
+            if (doc)
             {
-                const data = JSON.parse(raw);
-                const uuid = data?.uuid;
-                if (uuid && typeof uuid === "string")
+                const img = getDocumentImage(doc);
+                const name = String(doc?.name ?? "").trim();
+
+                if (img) this._newTile.image = img;
+                if (name)
                 {
-                    const doc = await fromUuid(uuid);
-                    const img = doc?.img;
-                    const name = String(doc?.name ?? "").trim();
-
-                    if (img) this._newTile.image = img;
-                    if (name)
-                    {
-                        this._newTile.label = name;
-                        this._newTile.id = hyphenateId(name);
-                    }
-
-                    const image = this._newTile?.image || "icons/svg/d20-grey.svg"; // This line remains unchanged
-                    return;
+                    this._newTile.label = name;
+                    this._newTile.id = hyphenateId(name);
                 }
-            } catch
-            {
-                // continue to file handling
+
+                this.render({ force: true });
+                return;
             }
         }
 
@@ -661,8 +704,6 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         try
         {
             const response = await FilePicker.upload("data", worldUploadTarget(), file, { notify: true });
-            this._reconcileSolutionWithTiles();
-            this._autoAdjustColumns(prevTileCount);
             const path = response?.path;
             if (path)
             {
@@ -710,37 +751,32 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         const raw = event.dataTransfer?.getData("text/plain");
         if (raw)
         {
-            try
+            const doc = await resolveDroppedDocument(raw);
+            if (doc)
             {
-                const data = JSON.parse(raw);
-                const uuid = data?.uuid;
-                if (uuid && typeof uuid === "string")
+                const img = getDocumentImage(doc);
+                if (img)
                 {
-                    const doc = await fromUuid(uuid);
-                    const img = doc?.img;
-                    if (img)
-                    {
-                        this._working.tiles[tileIndex].image = img;
-
-                        const name = String(doc?.name ?? "").trim();
-                        if (name)
-                        {
-                            this._working.tiles[tileIndex].label = name;
-                            const proposedId = hyphenateId(name);
-                            this._working.tiles[tileIndex].id = ensureUniqueTileId(
-                                proposedId,
-                                this._working.tiles,
-                                tileIndex
-                            );
-                        }
-
-                        this.render({ force: true });
-                        return;
-                    }
+                    this._working.tiles[tileIndex].image = img;
                 }
-            } catch
-            {
-                // continue to file handling
+
+                const name = String(doc?.name ?? "").trim();
+                if (name)
+                {
+                    this._working.tiles[tileIndex].label = name;
+                    const proposedId = hyphenateId(name);
+                    this._working.tiles[tileIndex].id = ensureUniqueTileId(
+                        proposedId,
+                        this._working.tiles,
+                        tileIndex
+                    );
+                }
+
+                // If we changed IDs, keep solution consistent.
+                this._reconcileSolutionWithTiles();
+
+                this.render({ force: true });
+                return;
             }
         }
 

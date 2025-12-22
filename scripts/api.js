@@ -358,7 +358,18 @@ export function registerDraggablePuzzleApi()
         }
       }
     };
-    return Item.create(itemData);
+
+    // Some systems (e.g. dnd5e) may automatically render a sheet on create.
+    // We want the module's config UI to be the primary editor.
+    const created = await Item.create(itemData, { renderSheet: false, render: false });
+    try
+    {
+      if (created?.sheet?.rendered) await created.sheet.close();
+    } catch
+    {
+      // ignore
+    }
+    return created;
   };
 
   game.draggablePuzzle.createPuzzleItemFromSaved = async (opts = {}) =>

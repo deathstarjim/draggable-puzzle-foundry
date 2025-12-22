@@ -1,8 +1,5 @@
 import { MODULE_ID } from "./constants.js";
 
-let _itemsInjectedToast = false;
-let _tilesInjectedToast = false;
-
 function unwrapHtml(html)
 {
     // Foundry hooks sometimes pass a jQuery object, sometimes a raw HTMLElement.
@@ -87,12 +84,6 @@ function injectCreatePuzzleButton(root)
 
     button.classList.add("dp-create-puzzle");
     target.appendChild(button);
-
-    if (!_itemsInjectedToast)
-    {
-        _itemsInjectedToast = true;
-        ui.notifications?.info?.("Draggable Puzzle: Items button injected");
-    }
 }
 
 /**
@@ -164,12 +155,6 @@ Hooks.on("getSceneControlButtons", (controls) =>
             }
         });
 
-        if (!_tilesInjectedToast)
-        {
-            _tilesInjectedToast = true;
-            if (game.user?.isGM) ui.notifications?.info?.("Draggable Puzzle: Tile tools injected");
-        }
-
     } catch (error)
     {
         console.error("Draggable Puzzle | Failed to add scene controls", error);
@@ -178,14 +163,5 @@ Hooks.on("getSceneControlButtons", (controls) =>
 
 Hooks.once("ready", () =>
 {
-    // Visible confirmation for GMs (helps diagnose when hooks never run).
-    try
-    {
-        if (game.user?.isGM) ui.notifications?.info?.("Draggable Puzzle: UI hooks loaded");
-    } catch
-    {
-        // ignore
-    }
-
     console.debug?.(`${MODULE_ID} | UI hooks ready`);
 });
