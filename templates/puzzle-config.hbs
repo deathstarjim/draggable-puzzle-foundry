@@ -46,8 +46,12 @@
 
     <div class="dp-config__row">
         <label>On Solve Macro (name or UUID)</label>
-        <input type="text" name="onSolvedMacro" value="{{config.onSolvedMacro}}"
-            placeholder="e.g. Unlock Door or Macro.abc123..." />
+        <div class="dp-config__image-drop">
+            <input type="text" name="onSolvedMacro" value="{{config.onSolvedMacro}}"
+                placeholder="e.g. Unlock Door or Macro.abc123..." />
+            <button type="button" data-action="pickMacro" title="Pick a Macro"><i
+                    class="fas fa-crosshairs"></i></button>
+        </div>
         <p class="notes">Tip: drag a Macro from the sidebar onto this field to auto-fill.</p>
     </div>
 

@@ -398,6 +398,15 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             return;
         }
 
+        if (action === "pickMacro")
+        {
+            const uuid = await this._promptSelectMacroUuid({ current: this._working?.onSolvedMacro ?? "" });
+            if (uuid === null) return;
+            this._working.onSolvedMacro = uuid;
+            this.render({ force: true });
+            return;
+        }
+
         if (action === "saveAsItem")
         {
             if (!game.user?.isGM) return;
@@ -633,6 +642,64 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
                     }
                 },
                 default: "open",
+                close: () => resolve(null)
+            }).render(true);
+        });
+    }
+
+    async _promptSelectMacroUuid({ current = "" } = {})
+    {
+        const macros = Array.from(game.macros ?? []).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        if (!macros.length)
+        {
+            ui.notifications?.warn("Draggable Puzzle: No world Macros found.");
+            return null;
+        }
+
+        return new Promise((resolve) =>
+        {
+            const currentText = String(current ?? "").trim();
+            const noneSelected = !currentText;
+
+            const options = [
+                `<option value="" ${noneSelected ? "selected" : ""}>(None)</option>`,
+                ...macros.map((m) =>
+                {
+                    const selected = (m.uuid === currentText || m.name === currentText) ? "selected" : "";
+                    return `<option value="${m.uuid}" ${selected}>${foundry.utils.escapeHTML(m.name)}</option>`;
+                })
+            ].join("");
+
+            const content = `
+        <form>
+          <div class="form-group">
+            <label>Select Macro</label>
+            <select name="uuid">${options}</select>
+            <p class="notes">This will store the Macro UUID (recommended).</p>
+          </div>
+        </form>
+      `;
+
+            new Dialog({
+                title: "Select On-Solve Macro",
+                content,
+                buttons: {
+                    select: {
+                        icon: '<i class="fas fa-check"></i>',
+                        label: "Select",
+                        callback: (html) =>
+                        {
+                            const uuid = String(html?.find?.('select[name="uuid"]')?.val?.() ?? "").trim();
+                            resolve(uuid);
+                        }
+                    },
+                    cancel: {
+                        icon: '<i class="fas fa-times"></i>',
+                        label: "Cancel",
+                        callback: () => resolve(null)
+                    }
+                },
+                default: "select",
                 close: () => resolve(null)
             }).render(true);
         });

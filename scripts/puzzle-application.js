@@ -48,6 +48,8 @@ function normalizePuzzleDefinition(definition)
         instructions: definition.instructions ?? "Drag pieces into the grid.",
         showChatMessage: definition.showChatMessage ?? "",
         solvedChatMessage: definition.solvedChatMessage ?? "",
+        onSolvedMacro: definition.onSolvedMacro ?? "",
+        onSolvedMacroArgs: definition.onSolvedMacroArgs ?? null,
         shuffle: Boolean(definition.shuffle),
         closeOnSolve: definition.closeOnSolve !== false,
         columns,
