@@ -1,13 +1,13 @@
 import
-    {
-        MODULE_ID,
-        SOCKET_CHANNEL,
-        SOCKET_ACTION_OPEN,
-        SOCKET_ACTION_STATE,
-        SOCKET_ACTION_SOLVED,
-        ACTION_PING,
-        ACTION_ACK
-    } from "./constants.js";
+{
+    MODULE_ID,
+    SOCKET_CHANNEL,
+    SOCKET_ACTION_OPEN,
+    SOCKET_ACTION_STATE,
+    SOCKET_ACTION_SOLVED,
+    ACTION_PING,
+    ACTION_ACK
+} from "./constants.js";
 
 const ACTION_OPEN = SOCKET_ACTION_OPEN;
 const ACTION_STATE = SOCKET_ACTION_STATE;
@@ -107,6 +107,12 @@ function getActiveNonGMUserIds()
     return users.filter(u => u?.active && !u.isGM).map(u => u.id);
 }
 
+function getActiveUserIds()
+{
+    const users = Array.from(game.users ?? []);
+    return users.filter(u => u?.active).map(u => u.id);
+}
+
 async function whisperFallback({ whisperUserIds, payload } = {})
 {
     try
@@ -129,7 +135,7 @@ async function whisperFallback({ whisperUserIds, payload } = {})
     }
 }
 
-async function sendStateUpdate({ sessionId, state, targetUserIds } = {})
+async function sendStateUpdate({ sessionId, state, targetUserIds, seq } = {})
 {
     if (!sessionId) return;
 
@@ -139,6 +145,7 @@ async function sendStateUpdate({ sessionId, state, targetUserIds } = {})
         sessionId: String(sessionId),
         senderId: game.user?.id,
         targetUserIds: normalizeTargetUserIds(targetUserIds),
+        seq: Number.isFinite(seq) ? Number(seq) : null,
         ts: safeNow(),
         state
     };
@@ -146,7 +153,10 @@ async function sendStateUpdate({ sessionId, state, targetUserIds } = {})
     game.socket?.emit?.(SOCKET_CHANNEL, payload);
 
     // Whisper fallback (best effort)
-    const whisperUserIds = payload.targetUserIds ?? getActiveNonGMUserIds();
+    // If no explicit targets are provided, include GMs too so player moves can
+    // still reach the GM even if socket delivery is disrupted.
+    const whisperUserIds = (payload.targetUserIds ?? getActiveUserIds())
+        .filter(id => id && id !== game.user?.id);
     void whisperFallback({ whisperUserIds, payload });
 }
 
@@ -227,7 +237,10 @@ async function handleStatePayload(message)
     {
         try
         {
-            app.applyRemoteState?.({ state: message.state, senderId: message.senderId, ts: message.ts });
+            const state = message.state && typeof message.state === "object"
+                ? { ...message.state, _dpSeq: Number.isFinite(message.seq) ? Number(message.seq) : message.state?._dpSeq }
+                : message.state;
+            app.applyRemoteState?.({ state, senderId: message.senderId, ts: message.ts });
         } catch
         {
             // ignore
@@ -332,7 +345,7 @@ export function bindSocketOnce()
     };
     game.draggablePuzzle._dpTryMarkSessionSolved = (sessionId) => tryMarkSessionSolved(sessionId);
     game.draggablePuzzle.sendSessionState = (sessionId, state, opts = {}) =>
-        sendStateUpdate({ sessionId, state, targetUserIds: opts?.targetUserIds ?? null });
+        sendStateUpdate({ sessionId, state, targetUserIds: opts?.targetUserIds ?? null, seq: opts?.seq ?? null });
     game.draggablePuzzle.requestSolved = (sessionId, { state } = {}) =>
         sendSolvedRequest({ sessionId, state });
 }

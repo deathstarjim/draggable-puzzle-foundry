@@ -76,8 +76,9 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
         this.sessionId = options?.sessionId ? String(options.sessionId) : null;
         this.enableSync = options?.enableSync === true;
         this._suppressSync = false;
-        this._lastAppliedRemoteTs = 0;
+        this._lastAppliedRemoteBySender = new Map();
         this._syncDebounceId = null;
+        this._localSeq = 0;
         this._solvedHandled = false;
 
         const pieceIds = this.puzzle.tiles.map(t => t.id);
@@ -318,14 +319,31 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
     {
         try
         {
-            const safeTs = Number.isFinite(ts) ? ts : Date.now();
-            if (safeTs <= this._lastAppliedRemoteTs) return;
-            this._lastAppliedRemoteTs = safeTs;
-
             if (!state || typeof state !== "object") return;
             if (!Array.isArray(state.trayPieceIds) || !Array.isArray(state.slotPieceIds)) return;
 
+            // Ignore our own echoed socket/chat-fallback messages.
+            // Important: do this BEFORE any timestamp/ordering bookkeeping so
+            // local timestamps can't cause other users' updates to be discarded.
             if (senderId && senderId === game.user?.id) return;
+
+            const senderKey = senderId ? String(senderId) : "unknown";
+            const last = this._lastAppliedRemoteBySender.get(senderKey) ?? { seq: null, ts: 0 };
+            const safeTs = Number.isFinite(ts) ? ts : Date.now();
+
+            // Prefer a monotonic per-sender sequence number when available.
+            const seq = Number.isFinite(state?._dpSeq) ? Number(state._dpSeq) : null;
+            if (seq !== null)
+            {
+                const lastSeq = Number.isFinite(last.seq) ? Number(last.seq) : -1;
+                if (seq <= lastSeq) return;
+                this._lastAppliedRemoteBySender.set(senderKey, { seq, ts: safeTs });
+            } else
+            {
+                const lastTs = Number.isFinite(last.ts) ? Number(last.ts) : 0;
+                if (safeTs <= lastTs) return;
+                this._lastAppliedRemoteBySender.set(senderKey, { seq: last.seq ?? null, ts: safeTs });
+            }
 
             this._suppressSync = true;
             this.dpState.trayPieceIds = state.trayPieceIds.slice();
@@ -358,6 +376,7 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
         if (!this.sessionId) return;
         if (this._suppressSync) return;
 
+        // Send on next tick to keep UI responsive but near real-time.
         if (this._syncDebounceId) clearTimeout(this._syncDebounceId);
         this._syncDebounceId = setTimeout(() =>
         {
@@ -365,12 +384,18 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
             {
                 const send = game.draggablePuzzle?.sendSessionState;
                 if (typeof send !== "function") return;
-                void send(this.sessionId, this.dpState);
+                const seq = ++this._localSeq;
+                const state = {
+                    trayPieceIds: this.dpState.trayPieceIds.slice(),
+                    slotPieceIds: this.dpState.slotPieceIds.slice(),
+                    _dpSeq: seq
+                };
+                void send(this.sessionId, state, { seq });
             } catch (error)
             {
                 console.warn("Draggable Puzzle | Failed to sync state", error);
             }
-        }, 50);
+        }, 0);
     }
 
     _onDragOver(event)
