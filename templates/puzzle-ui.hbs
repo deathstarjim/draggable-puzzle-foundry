@@ -1,0 +1,58 @@
+<div class="dp-root">
+    <div class="dp-header">
+        <div class="dp-header-row">
+            <h2 class="dp-title">{{title}}</h2>
+            <div class="dp-header-actions">
+                <button type="button" class="dp-reset-button" data-action="reset" title="Reset puzzle">
+                    <i class="fas fa-undo"></i>
+                </button>
+                {{#if canConfigure}}
+                <button type="button" class="dp-broadcast-button" data-action="broadcast" title="Show to players">
+                    <i class="fas fa-bullhorn"></i>
+                </button>
+                <button type="button" class="dp-config-button" data-action="openConfig" title="Configure puzzle">
+                    <i class="fas fa-cog"></i>
+                </button>
+                {{/if}}
+            </div>
+        </div>
+        <p class="dp-instructions">{{instructions}}</p>
+    </div>
+
+    <div class="dp-layout">
+        <section class="dp-board" aria-label="Puzzle board">
+            <h3 class="dp-section-title">Board</h3>
+
+            <div class="dp-board-grid" style="--dp-columns: {{columns}};">
+                {{#each slots as |slot|}}
+                <div class="dp-slot" data-slot-index="{{slot.slotIndex}}">
+                    {{#if slot.tile}}
+                    <div class="dp-piece dp-piece--in-slot" draggable="true" data-from="slot"
+                        data-index="{{slot.slotIndex}}" data-piece-id="{{slot.tile.id}}" title="{{slot.tile.label}}">
+                        <img class="dp-piece-img" src="{{slot.tile.image}}" alt="{{slot.tile.label}}"
+                            draggable="false" />
+                        <div class="dp-piece-label">{{slot.tile.label}}</div>
+                    </div>
+                    {{else}}
+                    <div class="dp-slot-empty">Drop here</div>
+                    {{/if}}
+                </div>
+                {{/each}}
+            </div>
+        </section>
+
+        <section class="dp-tray" aria-label="Puzzle pieces tray">
+            <h3 class="dp-section-title">Pieces</h3>
+
+            <div class="dp-tray-grid">
+                {{#each trayTiles as |tile index|}}
+                <div class="dp-piece" draggable="true" data-from="tray" data-index="{{index}}"
+                    data-piece-id="{{tile.id}}" title="{{tile.label}}">
+                    <img class="dp-piece-img" src="{{tile.image}}" alt="{{tile.label}}" draggable="false" />
+                    <div class="dp-piece-label">{{tile.label}}</div>
+                </div>
+                {{/each}}
+            </div>
+        </section>
+    </div>
+</div>
