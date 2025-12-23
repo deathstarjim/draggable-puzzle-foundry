@@ -286,6 +286,10 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         this._working.title = String(fd.get("title") ?? "");
         this._working.instructions = String(fd.get("instructions") ?? "");
         this._working.columns = Number(fd.get("columns") ?? 0) || 0;
+        {
+            const fit = String(fd.get("imageFit") ?? "").trim();
+            this._working.imageFit = fit === "cover" ? "cover" : "contain";
+        }
         this._working.shuffle = fd.get("shuffle") === "on";
         this._working.closeOnSolve = fd.get("closeOnSolve") === "on";
 
@@ -500,6 +504,67 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             return;
         }
 
+        if (action === "uploadNewTileImage")
+        {
+            if (!game.user?.isGM)
+            {
+                ui.notifications?.warn("Draggable Puzzle: Only a GM can upload images.");
+                return;
+            }
+
+            const file = await this._promptSelectLocalImageFile();
+            if (!file) return;
+
+            await ensureWorldUploadDir();
+            try
+            {
+                const response = await FilePicker.upload("data", worldUploadTarget(), file, { notify: true });
+                const path = response?.path;
+                if (path)
+                {
+                    this._newTile.image = path;
+                    this.render({ force: true });
+                }
+            } catch (error)
+            {
+                console.error("Draggable Puzzle | Upload failed", error);
+                ui.notifications?.error("Draggable Puzzle: Image upload failed (see console).");
+            }
+            return;
+        }
+
+        if (action === "uploadImage")
+        {
+            if (!game.user?.isGM)
+            {
+                ui.notifications?.warn("Draggable Puzzle: Only a GM can upload images.");
+                return;
+            }
+
+            const tileIndex = Number(event.currentTarget?.dataset?.tileIndex);
+            if (!Number.isFinite(tileIndex)) return;
+
+            const file = await this._promptSelectLocalImageFile();
+            if (!file) return;
+
+            await ensureWorldUploadDir();
+            try
+            {
+                const response = await FilePicker.upload("data", worldUploadTarget(), file, { notify: true });
+                const path = response?.path;
+                if (path)
+                {
+                    this._working.tiles[tileIndex].image = path;
+                    this.render({ force: true });
+                }
+            } catch (error)
+            {
+                console.error("Draggable Puzzle | Upload failed", error);
+                ui.notifications?.error("Draggable Puzzle: Image upload failed (see console).");
+            }
+            return;
+        }
+
         if (action === "preview")
         {
             if (typeof this._onPreview === "function")
@@ -642,6 +707,51 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
                     }
                 },
                 default: "open",
+                close: () => resolve(null)
+            }).render(true);
+        });
+    }
+
+    async _promptSelectLocalImageFile()
+    {
+        return new Promise((resolve) =>
+        {
+            const content = `
+        <form>
+          <div class="form-group">
+            <label>Select an image to upload</label>
+            <input type="file" name="file" accept="image/*" />
+          </div>
+        </form>
+      `;
+
+            new Dialog({
+                title: "Upload Image",
+                content,
+                buttons: {
+                    upload: {
+                        icon: '<i class="fas fa-upload"></i>',
+                        label: "Upload",
+                        callback: (html) =>
+                        {
+                            try
+                            {
+                                const input = html?.find?.('input[name="file"]')?.get?.(0);
+                                const file = input?.files?.[0] ?? null;
+                                resolve(file);
+                            } catch
+                            {
+                                resolve(null);
+                            }
+                        }
+                    },
+                    cancel: {
+                        icon: '<i class="fas fa-times"></i>',
+                        label: "Cancel",
+                        callback: () => resolve(null)
+                    }
+                },
+                default: "upload",
                 close: () => resolve(null)
             }).render(true);
         });

@@ -50,6 +50,7 @@ function normalizePuzzleDefinition(definition)
         solvedChatMessage: definition.solvedChatMessage ?? "",
         onSolvedMacro: definition.onSolvedMacro ?? "",
         onSolvedMacroArgs: definition.onSolvedMacroArgs ?? null,
+        imageFit: definition.imageFit === "cover" ? "cover" : "contain",
         shuffle: Boolean(definition.shuffle),
         closeOnSolve: definition.closeOnSolve !== false,
         columns,
@@ -203,6 +204,7 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
             title: this.puzzle.title,
             instructions: this.puzzle.instructions,
             columns: this.puzzle.columns,
+            imageFit: this.puzzle.imageFit ?? "contain",
             canConfigure: Boolean(game.user?.isGM),
             trayTiles,
             slots

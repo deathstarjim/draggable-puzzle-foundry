@@ -13,6 +13,7 @@ const DEFAULT_PUZZLE_CONFIG = {
   tiles: [],
   solution: [],
   columns: null,
+  imageFit: "contain",
   shuffle: true,
   closeOnSolve: true,
   onSolvedMacro: "",
@@ -37,6 +38,7 @@ function normalizeConfig(config)
   const next = { ...base, ...(config ?? {}) };
   next.tiles = Array.isArray(next.tiles) ? next.tiles : [];
   next.solution = Array.isArray(next.solution) ? next.solution : [];
+  next.imageFit = next.imageFit === "cover" ? "cover" : "contain";
   return next;
 }
 

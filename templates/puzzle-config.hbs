@@ -27,6 +27,14 @@
             <input type="number" name="columns" min="1" step="1" value="{{config.columns}}" />
         </div>
 
+        <div class="dp-config__row">
+            <label>Image Fit</label>
+            <select name="imageFit">
+                <option value="contain" {{#if (eq config.imageFit "contain" )}}selected{{/if}}>Fit (contain)</option>
+                <option value="cover" {{#if (eq config.imageFit "cover" )}}selected{{/if}}>Crop (cover)</option>
+            </select>
+        </div>
+
         <div class="dp-config__row dp-config__row--checkbox">
             <label>
                 <input type="checkbox" name="shuffle" {{#if config.shuffle}}checked{{/if}} />
@@ -104,7 +112,12 @@
             <div class="dp-config__image-drop" data-new-tile-image="true">
                 <input class="dp-config__image" type="text" name="newTile.image" value="{{config.newTile.image}}"
                     placeholder="icons/... or worlds/..." />
-                <button type="button" data-action="browseNewTileImage"><i class="fas fa-folder-open"></i></button>
+                <div class="dp-config__image-drop-buttons">
+                    <button type="button" data-action="browseNewTileImage" title="Browse"><i
+                            class="fas fa-folder-open"></i></button>
+                    <button type="button" data-action="uploadNewTileImage" title="Upload"><i
+                            class="fas fa-upload"></i></button>
+                </div>
             </div>
             <p class="notes">Drop: local image file, Item/Actor, or Compendium entry.</p>
         </div>
@@ -133,8 +146,12 @@
                 <div class="dp-config__image-drop">
                     <input class="dp-config__image" type="text" name="tiles.{{index}}.image" value="{{tile.image}}"
                         placeholder="icons/... or worlds/..." />
-                    <button type="button" data-action="browseImage" data-tile-index="{{index}}"><i
-                            class="fas fa-folder-open"></i></button>
+                    <div class="dp-config__image-drop-buttons">
+                        <button type="button" data-action="browseImage" data-tile-index="{{index}}" title="Browse"><i
+                                class="fas fa-folder-open"></i></button>
+                        <button type="button" data-action="uploadImage" data-tile-index="{{index}}" title="Upload"><i
+                                class="fas fa-upload"></i></button>
+                    </div>
                 </div>
                 <p class="notes">Drop: local image file, Item/Actor, or Compendium entry.</p>
             </div>

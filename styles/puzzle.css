@@ -5,6 +5,11 @@
 	--dp-tile-size: 150px;
 	--dp-tile-height: 112px;
 	--dp-gap: 0.5rem;
+	--dp-image-fit: contain;
+}
+
+#draggable-puzzle .dp-root[data-image-fit="cover"] {
+	--dp-image-fit: cover;
 }
 
 #draggable-puzzle .dp-layout {
@@ -130,7 +135,7 @@
 #draggable-puzzle .dp-piece-img {
 	width: 100%;
 	height: 64px;
-	object-fit: contain;
+	object-fit: var(--dp-image-fit, contain);
 	pointer-events: none;
 }
 
@@ -209,4 +214,10 @@
 	border: 1px dashed var(--color-border-light-2);
 	border-radius: 6px;
 	cursor: pointer;
+}
+
+#draggable-puzzle-config .dp-config__image-drop-buttons {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
 }
