@@ -116,44 +116,103 @@ Hooks.on("renderSidebarTab", (app, html) =>
 
 /**
  * Add Tile Controls tools for opening the puzzle UI and config UI.
+ *
+ * Buttons are placed in the "tokens" group so they are always visible without
+ * requiring the user to switch to the Tiles layer, matching the pattern used by
+ * other modules (e.g. party-loot).
+ *
+ * v13: controls is an Array of group objects, each with a tools Array.
+ * v14: controls is a plain Object keyed by group name, each with a tools Object keyed by tool name.
  */
 Hooks.on("getSceneControlButtons", (controls) =>
 {
     try
     {
-        const tiles = controls?.find?.(c => c?.name === "tiles" || c?.layer === "tiles");
-        if (!tiles) return;
+        // Resolve the target group. Use "tokens" (always-visible) with "tiles" as fallback.
+        let group;
+        if (Array.isArray(controls))
+        {
+            group = controls.find(c => c?.name === "tokens")
+                ?? controls.find(c => c?.name === "tiles" || c?.layer === "tiles");
+        }
+        else
+        {
+            group = controls["tokens"] ?? controls["tiles"];
+        }
+        if (!group) return;
 
-        tiles.tools = tiles.tools ?? [];
+        const openAction = () =>
+        {
+            const fn = game.draggablePuzzle?.openSavedPuzzle ?? game.draggablePuzzle?.openPuzzle;
+            if (!fn) return notifyMissingApi();
+            void fn();
+        };
 
-        // Avoid duplicates on hot reload
-        if (tiles.tools.some(t => t?.name === "dp-open")) return;
+        const configAction = () =>
+        {
+            const fn = game.draggablePuzzle?.openSavedConfig ?? game.draggablePuzzle?.openConfig;
+            if (!fn) return notifyMissingApi();
+            void fn();
+        };
 
-        tiles.tools.push({
-            name: "dp-open",
-            title: "Open Draggable Puzzle",
-            icon: "fas fa-puzzle-piece",
-            visible: true,
-            onClick: () =>
+        if (Array.isArray(group.tools))
+        {
+            // v13 path
+            if (group.tools.some(t => t?.name === "dp-open")) return;
+
+            group.tools.push({
+                name: "dp-open",
+                title: "Open Draggable Puzzle",
+                icon: "fas fa-puzzle-piece",
+                button: true,
+                visible: true,
+                onClick: openAction,
+                onChange: openAction
+            });
+
+            group.tools.push({
+                name: "dp-config",
+                title: "Draggable Puzzle Config",
+                icon: "fas fa-sliders-h",
+                button: true,
+                visible: Boolean(game.user?.isGM),
+                onClick: configAction,
+                onChange: configAction
+            });
+        }
+        else
+        {
+            // v14 path: tools is a plain object keyed by tool name
+            group.tools ??= {};
+            if (group.tools["dp-open"]) return;
+
+            const toolCount = Object.keys(group.tools).length;
+
+            group.tools["dp-open"] = {
+                name: "dp-open",
+                title: "Open Draggable Puzzle",
+                icon: "fas fa-puzzle-piece",
+                order: toolCount,
+                button: true,
+                visible: true,
+                onClick: openAction,
+                onChange: openAction
+            };
+
+            if (game.user?.isGM)
             {
-                const fn = game.draggablePuzzle?.openSavedPuzzle ?? game.draggablePuzzle?.openPuzzle;
-                if (!fn) return notifyMissingApi();
-                void fn();
+                group.tools["dp-config"] = {
+                    name: "dp-config",
+                    title: "Draggable Puzzle Config",
+                    icon: "fas fa-sliders-h",
+                    order: toolCount + 1,
+                    button: true,
+                    visible: true,
+                    onClick: configAction,
+                    onChange: configAction
+                };
             }
-        });
-
-        tiles.tools.push({
-            name: "dp-config",
-            title: "Draggable Puzzle Config",
-            icon: "fas fa-sliders-h",
-            visible: Boolean(game.user?.isGM),
-            onClick: () =>
-            {
-                const fn = game.draggablePuzzle?.openSavedConfig ?? game.draggablePuzzle?.openConfig;
-                if (!fn) return notifyMissingApi();
-                void fn();
-            }
-        });
+        }
 
     } catch (error)
     {

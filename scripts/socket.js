@@ -315,8 +315,14 @@ export function bindSocketOnce()
             const payload = chatMessage?.flags?.[MODULE_ID]?.payload ?? null;
             if (!payload || typeof payload !== "object") return;
 
-            const authorId = chatMessage?.author?.id ?? chatMessage?.authorId ?? null;
-            const author = chatMessage?.author ?? (authorId ? game.users?.get?.(authorId) : null);
+            const authorId = chatMessage?.author?.id
+                ?? chatMessage?.user?.id
+                ?? chatMessage?.authorId
+                ?? chatMessage?.userId
+                ?? null;
+            const author = chatMessage?.author
+                ?? chatMessage?.user
+                ?? (authorId ? game.users?.get?.(authorId) : null);
             if (!author) return;
 
             if (payload.action === ACTION_OPEN && !author.isGM) return;

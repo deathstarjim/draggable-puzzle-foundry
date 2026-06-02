@@ -1,9 +1,12 @@
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
+// FilePicker moved to foundry namespace in v14; use new path first, fall back to legacy global for v13.
+const FilePicker = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker;
+
 function worldUploadTarget()
 {
     const worldId = game.world?.id ?? game.world?.name ?? "world";
-    return `worlds/${worldId}/draggable-puzzle`;
+    return `worlds/${worldId}/draggable-puzzle-foundry`;
 }
 
 async function ensureWorldUploadDir()
@@ -110,6 +113,24 @@ function ensureUniqueTileId(baseId, tiles, excludeIndex)
     return `${normalizedBase}-${suffix}`;
 }
 
+/**
+ * Returns an inline style string that crops the source image to the tile's grid position,
+ * or null if the tile has no slice data.
+ */
+function tileSliceStyle(tile)
+{
+    if (!tile?.sliceImage) return null;
+    const cols = Number(tile.sliceCols) || 1;
+    const rows = Number(tile.sliceRows) || 1;
+    const col = Number(tile.sliceCol) || 0;
+    const row = Number(tile.sliceRow) || 0;
+    const px = cols > 1 ? ((col / (cols - 1)) * 100).toFixed(3) + "%" : "0%";
+    const py = rows > 1 ? ((row / (rows - 1)) * 100).toFixed(3) + "%" : "0%";
+    // URL-encode quotes so the path can't break out of the CSS url() or style attribute.
+    const src = tile.sliceImage.replace(/\\/g, "/").replace(/'/g, "%27").replace(/"/g, "%22");
+    return `background-image:url('${src}');background-size:${cols * 100}% ${rows * 100}%;background-position:${px} ${py};background-repeat:no-repeat;`;
+}
+
 export class PuzzleConfigApplication extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor({ getConfig, setConfig, onPreview, onSaved } = {})
     {
@@ -143,9 +164,29 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
 
     static PARTS = {
         content: {
-            template: "modules/draggable-puzzle/templates/puzzle-config.hbs"
+            template: "modules/draggable-puzzle-foundry/templates/puzzle-config.hbs"
         }
     };
+
+    render(options = {}, _options = {})
+    {
+        // Capture scroll position before the DOM is replaced so we can restore it after.
+        const scroller = this.element?.querySelector(".dp-config");
+        this._savedScrollTop = scroller ? scroller.scrollTop : 0;
+        return super.render(options, _options);
+    }
+
+    async _onRender(context, options)
+    {
+        await super._onRender(context, options);
+        // Restore scroll position so the user stays where they were.
+        if (this._savedScrollTop > 0)
+        {
+            const scroller = this.element?.querySelector(".dp-config");
+            if (scroller) scroller.scrollTop = this._savedScrollTop;
+            this._savedScrollTop = 0;
+        }
+    }
 
     async _prepareContext()
     {
@@ -153,13 +194,24 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
 
         return {
             isGM: !!game.user?.isGM,
+            activeTab: this._activeTab ?? "puzzle",
             config: {
                 ...config,
                 onSolvedMacro: config.onSolvedMacro ?? "",
                 onSolvedMacroArgsText: config.onSolvedMacroArgs ? JSON.stringify(config.onSolvedMacroArgs) : "",
                 solutionText: Array.isArray(config.solution) ? config.solution.join(",") : "",
-                tiles: Array.isArray(config.tiles) ? config.tiles : [],
-                newTile: this._newTile ?? { id: "", label: "", image: "" }
+                rows: config.rows ?? 3,
+                sourceImage: config.sourceImage ?? "",
+                sourceColumns: config.sourceColumns ?? config.columns ?? 3,
+                sourceRows: config.sourceRows ?? 3,
+                tiles: (Array.isArray(config.tiles) ? config.tiles : []).map(t => ({
+                    ...t,
+                    sliceStyle: tileSliceStyle(t)
+                })),
+                newTile: {
+                    ...(this._newTile ?? { id: "", label: "", image: "" }),
+                    sliceStyle: tileSliceStyle(this._newTile)
+                }
             }
         };
     }
@@ -168,6 +220,21 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
     {
         super._attachPartListeners(partId, htmlElement, options);
         if (partId !== "content") return;
+
+        // Tab switching (client-side, no re-render needed)
+        htmlElement.querySelectorAll(".dp-config__tab-btn").forEach(btn =>
+        {
+            btn.addEventListener("click", () =>
+            {
+                const tab = btn.dataset.tab;
+                if (!tab) return;
+                this._activeTab = tab;
+                htmlElement.querySelectorAll(".dp-config__tab-btn").forEach(b =>
+                    b.classList.toggle("dp-config__tab-btn--active", b.dataset.tab === tab));
+                htmlElement.querySelectorAll(".dp-config__tab-panel").forEach(p =>
+                    p.classList.toggle("dp-config__tab-panel--active", p.dataset.tabPanel === tab));
+            });
+        });
 
         // Save/preview actions
         htmlElement.querySelectorAll("[data-action]").forEach(button =>
@@ -286,6 +353,7 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         this._working.title = String(fd.get("title") ?? "");
         this._working.instructions = String(fd.get("instructions") ?? "");
         this._working.columns = Number(fd.get("columns") ?? 0) || 0;
+        this._working.rows = Number(fd.get("rows") ?? 0) || 0;
         {
             const fit = String(fd.get("imageFit") ?? "").trim();
             this._working.imageFit = fit === "cover" ? "cover" : "contain";
@@ -297,6 +365,9 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         this._working.solvedChatMessage = String(fd.get("solvedChatMessage") ?? "");
 
         this._working.onSolvedMacro = String(fd.get("onSolvedMacro") ?? "").trim();
+        this._working.sourceImage = String(fd.get("sourceImage") ?? "").trim();
+        this._working.sourceColumns = Number(fd.get("sourceColumns") ?? 0) || 0;
+        this._working.sourceRows = Number(fd.get("sourceRows") ?? 0) || 0;
 
         const argsText = String(fd.get("onSolvedMacroArgs") ?? "").trim();
         if (!argsText)
@@ -318,7 +389,9 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         const tiles = Array.isArray(this._working.tiles) ? this._working.tiles : [];
         for (let index = 0; index < tiles.length; index++)
         {
+            // Spread first so slice metadata (sliceImage, sliceCols, etc.) is preserved.
             tiles[index] = {
+                ...tiles[index],
                 id: String(fd.get(`tiles.${index}.id`) ?? tiles[index]?.id ?? "").trim(),
                 label: String(fd.get(`tiles.${index}.label`) ?? tiles[index]?.label ?? "").trim(),
                 image: String(fd.get(`tiles.${index}.image`) ?? tiles[index]?.image ?? "").trim()
@@ -565,6 +638,28 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             return;
         }
 
+        if (action === "browseSourceImage")
+        {
+            const current = this._working.sourceImage ?? "";
+            const fp = new FilePicker({
+                type: "image",
+                current,
+                callback: (path) =>
+                {
+                    this._working.sourceImage = path;
+                    this.render({ force: true });
+                }
+            });
+            fp.browse(current);
+            return;
+        }
+
+        if (action === "autoSlice")
+        {
+            await this._autoSlice();
+            return;
+        }
+
         if (action === "preview")
         {
             if (typeof this._onPreview === "function")
@@ -624,11 +719,62 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         }
     }
 
+    async _autoSlice()
+    {
+        const sourceImage = this._working.sourceImage;
+        if (!sourceImage)
+        {
+            ui.notifications?.warn("Draggable Puzzle: Set a source image before generating tiles.");
+            return;
+        }
+
+        const cols = Math.max(1, Number(this._working.sourceColumns) || Number(this._working.columns) || 3);
+        const rows = Math.max(1, Number(this._working.sourceRows) || 3);
+
+        // Load image to determine aspect ratio so tile height looks correct.
+        const { width: imgW, height: imgH } = await new Promise((resolve) =>
+        {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            img.onerror = () => resolve({ width: 1, height: 1 });
+            img.src = sourceImage;
+        });
+
+        // height/width ratio for one cell in the grid.
+        const sliceTileAspect = (imgW > 0 && imgH > 0)
+            ? (imgH * cols) / (imgW * rows)
+            : 1;
+
+        const tiles = [];
+        for (let r = 0; r < rows; r++)
+        {
+            for (let c = 0; c < cols; c++)
+            {
+                tiles.push({
+                    id: `r${r}c${c}`,
+                    label: "",
+                    image: "",
+                    sliceImage: sourceImage,
+                    sliceCols: cols,
+                    sliceRows: rows,
+                    sliceCol: c,
+                    sliceRow: r
+                });
+            }
+        }
+
+        this._working.tiles = tiles;
+        this._working.solution = tiles.map(t => t.id);
+        this._working.sliceTileAspect = sliceTileAspect;
+        this._working.columns = cols;
+        this._working.rows = rows;
+        this._activeTab = "puzzle";
+        this.render({ force: true });
+    }
+
     async _promptText({ title, label, value } = {})
     {
-        return new Promise((resolve) =>
-        {
-            const content = `
+        const content = `
         <form>
           <div class="form-group">
             <label>${label ?? "Value"}</label>
@@ -637,29 +783,31 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         </form>
       `;
 
-            new Dialog({
-                title: title ?? "Input",
-                content,
-                buttons: {
-                    ok: {
-                        icon: '<i class="fas fa-check"></i>',
-                        label: "OK",
-                        callback: (html) =>
-                        {
-                            const v = String(html?.find?.('input[name="value"]')?.val?.() ?? "").trim();
-                            resolve(v || null);
-                        }
-                    },
-                    cancel: {
-                        icon: '<i class="fas fa-times"></i>',
-                        label: "Cancel",
-                        callback: () => resolve(null)
+        const result = await foundry.applications.api.DialogV2.wait({
+            window: { title: title ?? "Input" },
+            content,
+            buttons: [
+                {
+                    action: "ok",
+                    label: "OK",
+                    icon: "fas fa-check",
+                    default: true,
+                    callback: (_event, _button, dialog) =>
+                    {
+                        const v = String(dialog.element.querySelector('input[name="value"]')?.value ?? "").trim();
+                        return v || null;
                     }
                 },
-                default: "ok",
-                close: () => resolve(null)
-            }).render(true);
+                {
+                    action: "cancel",
+                    label: "Cancel",
+                    icon: "fas fa-times",
+                    callback: () => null
+                }
+            ],
+            rejectClose: false
         });
+        return result ?? null;
     }
 
     async _promptSelectWorldItemUuid()
@@ -671,13 +819,11 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             return null;
         }
 
-        return new Promise((resolve) =>
-        {
-            const options = items
-                .map((i) => `<option value="${i.uuid}">${foundry.utils.escapeHTML(i.name)}</option>`)
-                .join("");
+        const options = items
+            .map((i) => `<option value="${i.uuid}">${foundry.utils.escapeHTML(i.name)}</option>`)
+            .join("");
 
-            const content = `
+        const content = `
         <form>
           <div class="form-group">
             <label>Select Puzzle Item</label>
@@ -687,36 +833,36 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         </form>
       `;
 
-            new Dialog({
-                title: "Open Puzzle Item",
-                content,
-                buttons: {
-                    open: {
-                        icon: '<i class="fas fa-box-open"></i>',
-                        label: "Open",
-                        callback: (html) =>
-                        {
-                            const uuid = String(html?.find?.('select[name="uuid"]')?.val?.() ?? "").trim();
-                            resolve(uuid || null);
-                        }
-                    },
-                    cancel: {
-                        icon: '<i class="fas fa-times"></i>',
-                        label: "Cancel",
-                        callback: () => resolve(null)
+        const result = await foundry.applications.api.DialogV2.wait({
+            window: { title: "Open Puzzle Item" },
+            content,
+            buttons: [
+                {
+                    action: "open",
+                    label: "Open",
+                    icon: "fas fa-box-open",
+                    default: true,
+                    callback: (_event, _button, dialog) =>
+                    {
+                        const uuid = String(dialog.element.querySelector('select[name="uuid"]')?.value ?? "").trim();
+                        return uuid || null;
                     }
                 },
-                default: "open",
-                close: () => resolve(null)
-            }).render(true);
+                {
+                    action: "cancel",
+                    label: "Cancel",
+                    icon: "fas fa-times",
+                    callback: () => null
+                }
+            ],
+            rejectClose: false
         });
+        return result ?? null;
     }
 
     async _promptSelectLocalImageFile()
     {
-        return new Promise((resolve) =>
-        {
-            const content = `
+        const content = `
         <form>
           <div class="form-group">
             <label>Select an image to upload</label>
@@ -725,36 +871,37 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         </form>
       `;
 
-            new Dialog({
-                title: "Upload Image",
-                content,
-                buttons: {
-                    upload: {
-                        icon: '<i class="fas fa-upload"></i>',
-                        label: "Upload",
-                        callback: (html) =>
+        const result = await foundry.applications.api.DialogV2.wait({
+            window: { title: "Upload Image" },
+            content,
+            buttons: [
+                {
+                    action: "upload",
+                    label: "Upload",
+                    icon: "fas fa-upload",
+                    default: true,
+                    callback: (_event, _button, dialog) =>
+                    {
+                        try
                         {
-                            try
-                            {
-                                const input = html?.find?.('input[name="file"]')?.get?.(0);
-                                const file = input?.files?.[0] ?? null;
-                                resolve(file);
-                            } catch
-                            {
-                                resolve(null);
-                            }
+                            const input = dialog.element.querySelector('input[name="file"]');
+                            return input?.files?.[0] ?? null;
+                        } catch
+                        {
+                            return null;
                         }
-                    },
-                    cancel: {
-                        icon: '<i class="fas fa-times"></i>',
-                        label: "Cancel",
-                        callback: () => resolve(null)
                     }
                 },
-                default: "upload",
-                close: () => resolve(null)
-            }).render(true);
+                {
+                    action: "cancel",
+                    label: "Cancel",
+                    icon: "fas fa-times",
+                    callback: () => null
+                }
+            ],
+            rejectClose: false
         });
+        return result ?? null;
     }
 
     async _promptSelectMacroUuid({ current = "" } = {})
@@ -766,21 +913,19 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
             return null;
         }
 
-        return new Promise((resolve) =>
-        {
-            const currentText = String(current ?? "").trim();
-            const noneSelected = !currentText;
+        const currentText = String(current ?? "").trim();
+        const noneSelected = !currentText;
 
-            const options = [
-                `<option value="" ${noneSelected ? "selected" : ""}>(None)</option>`,
-                ...macros.map((m) =>
-                {
-                    const selected = (m.uuid === currentText || m.name === currentText) ? "selected" : "";
-                    return `<option value="${m.uuid}" ${selected}>${foundry.utils.escapeHTML(m.name)}</option>`;
-                })
-            ].join("");
+        const options = [
+            `<option value="" ${noneSelected ? "selected" : ""}>(None)</option>`,
+            ...macros.map((m) =>
+            {
+                const selected = (m.uuid === currentText || m.name === currentText) ? "selected" : "";
+                return `<option value="${m.uuid}" ${selected}>${foundry.utils.escapeHTML(m.name)}</option>`;
+            })
+        ].join("");
 
-            const content = `
+        const content = `
         <form>
           <div class="form-group">
             <label>Select Macro</label>
@@ -790,29 +935,30 @@ export class PuzzleConfigApplication extends HandlebarsApplicationMixin(Applicat
         </form>
       `;
 
-            new Dialog({
-                title: "Select On-Solve Macro",
-                content,
-                buttons: {
-                    select: {
-                        icon: '<i class="fas fa-check"></i>',
-                        label: "Select",
-                        callback: (html) =>
-                        {
-                            const uuid = String(html?.find?.('select[name="uuid"]')?.val?.() ?? "").trim();
-                            resolve(uuid);
-                        }
-                    },
-                    cancel: {
-                        icon: '<i class="fas fa-times"></i>',
-                        label: "Cancel",
-                        callback: () => resolve(null)
+        const result = await foundry.applications.api.DialogV2.wait({
+            window: { title: "Select On-Solve Macro" },
+            content,
+            buttons: [
+                {
+                    action: "select",
+                    label: "Select",
+                    icon: "fas fa-check",
+                    default: true,
+                    callback: (_event, _button, dialog) =>
+                    {
+                        return String(dialog.element.querySelector('select[name="uuid"]')?.value ?? "").trim();
                     }
                 },
-                default: "select",
-                close: () => resolve(null)
-            }).render(true);
+                {
+                    action: "cancel",
+                    label: "Cancel",
+                    icon: "fas fa-times",
+                    callback: () => null
+                }
+            ],
+            rejectClose: false
         });
+        return result ?? null;
     }
 
     async _commitNewTile()

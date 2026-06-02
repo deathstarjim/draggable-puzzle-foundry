@@ -1,11 +1,11 @@
 {
-  "id": "draggable-puzzle",
+  "id": "draggable-puzzle-foundry",
   "title": "Draggable Puzzle",
   "description": "A draggable tile puzzle with optional on-solve macro automation.",
   "version": "0.1.0",
   "compatibility": {
     "minimum": "13",
-    "verified": "13"
+    "verified": "14"
   },
   "authors": [
     {

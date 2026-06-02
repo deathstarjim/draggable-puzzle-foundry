@@ -1,4 +1,5 @@
-<div class="dp-root" data-image-fit="{{imageFit}}">
+<div class="dp-root" data-image-fit="{{imageFit}}" {{#if sliceTileHeight}}
+    style="--dp-tile-height: {{sliceTileHeight}}px;" {{/if}}>
     <div class="dp-header">
         <div class="dp-header-row">
             <h2 class="dp-title">{{title}}</h2>
@@ -29,9 +30,13 @@
                     {{#if slot.tile}}
                     <div class="dp-piece dp-piece--in-slot" draggable="true" data-from="slot"
                         data-index="{{slot.slotIndex}}" data-piece-id="{{slot.tile.id}}" title="{{slot.tile.label}}">
+                        {{#if slot.tile.sliceStyle}}
+                        <div class="dp-piece-img dp-piece-slice" style="{{{slot.tile.sliceStyle}}}"></div>
+                        {{else}}
                         <img class="dp-piece-img" src="{{slot.tile.image}}" alt="{{slot.tile.label}}"
                             draggable="false" />
-                        <div class="dp-piece-label">{{slot.tile.label}}</div>
+                        {{/if}}
+                        {{#if slot.tile.label}}<div class="dp-piece-label">{{slot.tile.label}}</div>{{/if}}
                     </div>
                     {{else}}
                     <div class="dp-slot-empty">Drop here</div>
@@ -48,8 +53,12 @@
                 {{#each trayTiles as |tile index|}}
                 <div class="dp-piece" draggable="true" data-from="tray" data-index="{{index}}"
                     data-piece-id="{{tile.id}}" title="{{tile.label}}">
+                    {{#if tile.sliceStyle}}
+                    <div class="dp-piece-img dp-piece-slice" style="{{{tile.sliceStyle}}}"></div>
+                    {{else}}
                     <img class="dp-piece-img" src="{{tile.image}}" alt="{{tile.label}}" draggable="false" />
-                    <div class="dp-piece-label">{{tile.label}}</div>
+                    {{/if}}
+                    {{#if tile.label}}<div class="dp-piece-label">{{tile.label}}</div>{{/if}}
                 </div>
                 {{/each}}
             </div>

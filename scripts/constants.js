@@ -1,4 +1,4 @@
-export const MODULE_ID = "draggable-puzzle";
+export const MODULE_ID = "draggable-puzzle-foundry";
 export const SETTING_KEY = "puzzleConfig";
 export const ITEM_FLAG_KEY = "puzzleConfig";
 export const SOCKET_CHANNEL = `module.${MODULE_ID}`;

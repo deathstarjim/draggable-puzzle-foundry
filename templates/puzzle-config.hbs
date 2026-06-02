@@ -11,145 +11,129 @@
         </div>
     </header>
 
-    <div class="dp-config__row">
-        <label>Title</label>
-        <input type="text" name="title" value="{{config.title}}" />
-    </div>
+    <nav class="dp-config__tabs">
+        <button type="button"
+            class="dp-config__tab-btn{{#if (eq activeTab 'puzzle')}} dp-config__tab-btn--active{{/if}}"
+            data-tab="puzzle">Puzzle</button>
+        <button type="button"
+            class="dp-config__tab-btn{{#if (eq activeTab 'autoslice')}} dp-config__tab-btn--active{{/if}}"
+            data-tab="autoslice">Auto-Slice</button>
+    </nav>
 
-    <div class="dp-config__row">
-        <label>Instructions</label>
-        <textarea name="instructions" rows="2">{{config.instructions}}</textarea>
-    </div>
-
-    <div class="dp-config__grid">
-        <div class="dp-config__row">
-            <label>Columns</label>
-            <input type="number" name="columns" min="1" step="1" value="{{config.columns}}" />
-        </div>
+    {{!-- Tab 1: Puzzle Setup --}}
+    <div class="dp-config__tab-panel{{#if (eq activeTab 'puzzle')}} dp-config__tab-panel--active{{/if}}"
+        data-tab-panel="puzzle">
 
         <div class="dp-config__row">
-            <label>Image Fit</label>
-            <select name="imageFit">
-                <option value="contain" {{#if (eq config.imageFit "contain" )}}selected{{/if}}>Fit (contain)</option>
-                <option value="cover" {{#if (eq config.imageFit "cover" )}}selected{{/if}}>Crop (cover)</option>
-            </select>
-        </div>
-
-        <div class="dp-config__row dp-config__row--checkbox">
-            <label>
-                <input type="checkbox" name="shuffle" {{#if config.shuffle}}checked{{/if}} />
-                Shuffle pieces
-            </label>
-        </div>
-
-        <div class="dp-config__row dp-config__row--checkbox">
-            <label>
-                <input type="checkbox" name="closeOnSolve" {{#if config.closeOnSolve}}checked{{/if}} />
-                Close on solve
-            </label>
-        </div>
-    </div>
-
-    <hr />
-
-    <div class="dp-config__row">
-        <label>On Solve Macro (name or UUID)</label>
-        <div class="dp-config__image-drop">
-            <input type="text" name="onSolvedMacro" value="{{config.onSolvedMacro}}"
-                placeholder="e.g. Unlock Door or Macro.abc123..." />
-            <button type="button" data-action="pickMacro" title="Pick a Macro"><i
-                    class="fas fa-crosshairs"></i></button>
-        </div>
-        <p class="notes">Tip: drag a Macro from the sidebar onto this field to auto-fill.</p>
-    </div>
-
-    <div class="dp-config__row">
-        <label>On Solve Macro Args (JSON array)</label>
-        <input type="text" name="onSolvedMacroArgs" value="{{config.onSolvedMacroArgsText}}"
-            placeholder='e.g. ["door-01"]' />
-    </div>
-
-    <div class="dp-config__row">
-        <label>Chat Message When Shown (optional)</label>
-        <textarea name="showChatMessage" rows="2" placeholder='e.g. You\' ve come to a door with a mysterious
-            puzzle...'>{{config.showChatMessage}}</textarea>
-        <p class="notes">Sent to players when you click “Show to players”.</p>
-    </div>
-
-    <div class="dp-config__row">
-        <label>Chat Message When Solved (optional)</label>
-        <textarea name="solvedChatMessage" rows="2" placeholder='e.g. You\' ve solved the Great Puzzle of
-            Oz.'>{{config.solvedChatMessage}}</textarea>
-        <p class="notes">Sent to players when the on-solve automation runs (GM-side).</p>
-    </div>
-
-    <hr />
-
-    <div class="dp-config__tiles-header">
-        <h3>Tiles</h3>
-        <div class="dp-config__tiles-actions">
-            <button type="button" data-action="addTile"><i class="fas fa-plus"></i> Add</button>
-            <button type="button" data-action="resetTiles"><i class="fas fa-undo"></i> Reset</button>
-        </div>
-    </div>
-
-    <div class="dp-config__new-tile" data-new-tile-drop="true"
-        title="Drop an image file, Item, Actor, or Compendium entry here to create a new tile">
-        <h4 class="dp-config__new-tile-title">New Tile</h4>
-
-        <div class="dp-config__row">
-            <label>ID</label>
-            <input type="text" name="newTile.id" value="{{config.newTile.id}}" placeholder="e.g. Owlbear" />
+            <label>Title</label>
+            <input type="text" name="title" value="{{config.title}}" />
         </div>
 
         <div class="dp-config__row">
-            <label>Label</label>
-            <input type="text" name="newTile.label" value="{{config.newTile.label}}" placeholder="e.g. Owlbear" />
+            <label>Instructions</label>
+            <textarea name="instructions" rows="2">{{config.instructions}}</textarea>
         </div>
 
-        <div class="dp-config__row">
-            <label>Image</label>
-            <div class="dp-config__image-drop" data-new-tile-image="true">
-                <input class="dp-config__image" type="text" name="newTile.image" value="{{config.newTile.image}}"
-                    placeholder="icons/... or worlds/..." />
-                <div class="dp-config__image-drop-buttons">
-                    <button type="button" data-action="browseNewTileImage" title="Browse"><i
-                            class="fas fa-folder-open"></i></button>
-                    <button type="button" data-action="uploadNewTileImage" title="Upload"><i
-                            class="fas fa-upload"></i></button>
-                </div>
+        <div class="dp-config__grid">
+            <div class="dp-config__row">
+                <label>Columns</label>
+                <input type="number" name="columns" min="1" step="1" value="{{config.columns}}" />
             </div>
-            <p class="notes">Drop: local image file, Item/Actor, or Compendium entry.</p>
+
+            <div class="dp-config__row">
+                <label>Rows</label>
+                <input type="number" name="rows" min="1" step="1" value="{{config.rows}}" />
+            </div>
+
+            <div class="dp-config__row">
+                <label>Image Fit</label>
+                <select name="imageFit">
+                    <option value="contain" {{#if (eq config.imageFit "contain")}}selected{{/if}}>Fit (contain)</option>
+                    <option value="cover" {{#if (eq config.imageFit "cover")}}selected{{/if}}>Crop (cover)</option>
+                </select>
+            </div>
+
+            <div class="dp-config__row dp-config__row--checkbox">
+                <label>
+                    <input type="checkbox" name="shuffle" {{#if config.shuffle}}checked{{/if}} />
+                    Shuffle pieces
+                </label>
+            </div>
+
+            <div class="dp-config__row dp-config__row--checkbox">
+                <label>
+                    <input type="checkbox" name="closeOnSolve" {{#if config.closeOnSolve}}checked{{/if}} />
+                    Close on solve
+                </label>
+            </div>
         </div>
 
-        <div class="dp-config__row dp-config__row--buttons">
-            <button type="button" data-action="commitNewTile"><i class="fas fa-plus"></i> Add to List</button>
-        </div>
-    </div>
+        <hr />
 
-    <div class="dp-config__tiles">
-        {{#each config.tiles as |tile index|}}
-        <div class="dp-config__tile" data-tile-index="{{index}}" data-tile-drop="true"
-            title="Drop an image file, Item, Actor, or Compendium entry anywhere on this tile">
+        <div class="dp-config__row">
+            <label>On Solve Macro (name or UUID)</label>
+            <div class="dp-config__image-drop">
+                <input type="text" name="onSolvedMacro" value="{{config.onSolvedMacro}}"
+                    placeholder="e.g. Unlock Door or Macro.abc123..." />
+                <button type="button" data-action="pickMacro" title="Pick a Macro"><i
+                        class="fas fa-crosshairs"></i></button>
+            </div>
+            <p class="notes">Tip: drag a Macro from the sidebar onto this field to auto-fill.</p>
+        </div>
+
+        <div class="dp-config__row">
+            <label>On Solve Macro Args (JSON array)</label>
+            <input type="text" name="onSolvedMacroArgs" value="{{config.onSolvedMacroArgsText}}"
+                placeholder='e.g. ["door-01"]' />
+        </div>
+
+        <div class="dp-config__row">
+            <label>Chat Message When Shown (optional)</label>
+            <textarea name="showChatMessage" rows="2"
+                placeholder="e.g. You've come to a door with a mysterious puzzle...">{{config.showChatMessage}}</textarea>
+            <p class="notes">Sent to players when you click "Show to players".</p>
+        </div>
+
+        <div class="dp-config__row">
+            <label>Chat Message When Solved (optional)</label>
+            <textarea name="solvedChatMessage" rows="2"
+                placeholder="e.g. You've solved the Great Puzzle of Oz.">{{config.solvedChatMessage}}</textarea>
+            <p class="notes">Sent to players when the on-solve automation runs (GM-side).</p>
+        </div>
+
+        <hr />
+
+        <div class="dp-config__tiles-header">
+            <h3>Tiles</h3>
+            <div class="dp-config__tiles-actions">
+                <button type="button" data-action="addTile"><i class="fas fa-plus"></i> Add</button>
+                <button type="button" data-action="resetTiles"><i class="fas fa-undo"></i> Reset</button>
+            </div>
+        </div>
+
+        <div class="dp-config__new-tile" data-new-tile-drop="true"
+            title="Drop an image file, Item, Actor, or Compendium entry here to create a new tile">
+            <h4 class="dp-config__new-tile-title">New Tile</h4>
+
             <div class="dp-config__row">
                 <label>ID</label>
-                <input type="text" name="tiles.{{index}}.id" value="{{tile.id}}" />
+                <input type="text" name="newTile.id" value="{{config.newTile.id}}" placeholder="e.g. Owlbear" />
             </div>
 
             <div class="dp-config__row">
                 <label>Label</label>
-                <input type="text" name="tiles.{{index}}.label" value="{{tile.label}}" />
+                <input type="text" name="newTile.label" value="{{config.newTile.label}}" placeholder="e.g. Owlbear" />
             </div>
 
             <div class="dp-config__row">
                 <label>Image</label>
-                <div class="dp-config__image-drop">
-                    <input class="dp-config__image" type="text" name="tiles.{{index}}.image" value="{{tile.image}}"
+                <div class="dp-config__image-drop" data-new-tile-image="true">
+                    <input class="dp-config__image" type="text" name="newTile.image" value="{{config.newTile.image}}"
                         placeholder="icons/... or worlds/..." />
                     <div class="dp-config__image-drop-buttons">
-                        <button type="button" data-action="browseImage" data-tile-index="{{index}}" title="Browse"><i
+                        <button type="button" data-action="browseNewTileImage" title="Browse"><i
                                 class="fas fa-folder-open"></i></button>
-                        <button type="button" data-action="uploadImage" data-tile-index="{{index}}" title="Upload"><i
+                        <button type="button" data-action="uploadNewTileImage" title="Upload"><i
                                 class="fas fa-upload"></i></button>
                     </div>
                 </div>
@@ -157,18 +141,91 @@
             </div>
 
             <div class="dp-config__row dp-config__row--buttons">
-                <button type="button" data-action="removeTile" data-tile-index="{{index}}"><i class="fas fa-trash"></i>
-                    Remove</button>
+                <button type="button" data-action="commitNewTile"><i class="fas fa-plus"></i> Add to List</button>
             </div>
         </div>
-        {{/each}}
+
+        <div class="dp-config__tiles">
+            {{#each config.tiles as |tile index|}}
+            <div class="dp-config__tile" data-tile-index="{{index}}" data-tile-drop="true"
+                title="Drop an image file, Item, Actor, or Compendium entry anywhere on this tile">
+                <div class="dp-config__row">
+                    <label>ID</label>
+                    <input type="text" name="tiles.{{index}}.id" value="{{tile.id}}" />
+                </div>
+
+                <div class="dp-config__row">
+                    <label>Label</label>
+                    <input type="text" name="tiles.{{index}}.label" value="{{tile.label}}" />
+                </div>
+
+                <div class="dp-config__row">
+                    <label>Image</label>
+                    <div class="dp-config__image-drop">
+                        <input class="dp-config__image" type="text" name="tiles.{{index}}.image"
+                            value="{{tile.image}}" placeholder="icons/... or worlds/..." />
+                        <div class="dp-config__image-drop-buttons">
+                            <button type="button" data-action="browseImage" data-tile-index="{{index}}"
+                                title="Browse"><i class="fas fa-folder-open"></i></button>
+                            <button type="button" data-action="uploadImage" data-tile-index="{{index}}"
+                                title="Upload"><i class="fas fa-upload"></i></button>
+                        </div>
+                    </div>
+                    <p class="notes">Drop: local image file, Item/Actor, or Compendium entry.</p>
+                </div>
+
+                <div class="dp-config__row dp-config__row--buttons">
+                    <button type="button" data-action="removeTile" data-tile-index="{{index}}"><i
+                            class="fas fa-trash"></i> Remove</button>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+
+        <hr />
+
+        <div class="dp-config__row">
+            <label>Solution (comma-separated tile IDs)</label>
+            <input type="text" name="solutionText" value="{{config.solutionText}}" placeholder="e.g. O,P,E,N" />
+        </div>
+
     </div>
 
-    <hr />
+    {{!-- Tab 2: Auto-Slice --}}
+    <div class="dp-config__tab-panel{{#if (eq activeTab 'autoslice')}} dp-config__tab-panel--active{{/if}}"
+        data-tab-panel="autoslice">
 
-    <div class="dp-config__row">
-        <label>Solution (comma-separated tile IDs)</label>
-        <input type="text" name="solutionText" value="{{config.solutionText}}" placeholder="e.g. O,P,E,N" />
+        <p class="notes dp-config__autoslice-intro">Choose a source image and set the grid dimensions. Clicking
+            <strong>Generate Tiles</strong> will replace the Tiles list on the Puzzle tab with
+            automatically-cropped pieces and update the Columns setting to match.</p>
+
+        <div class="dp-config__row">
+            <label>Source Image</label>
+            <div class="dp-config__image-drop">
+                <input type="text" name="sourceImage" value="{{config.sourceImage}}"
+                    placeholder="Path to image..." />
+                <button type="button" data-action="browseSourceImage" title="Browse"><i
+                        class="fas fa-folder-open"></i></button>
+            </div>
+        </div>
+
+        <div class="dp-config__grid">
+            <div class="dp-config__row">
+                <label>Columns</label>
+                <input type="number" name="sourceColumns" min="1" step="1" value="{{config.sourceColumns}}" />
+            </div>
+            <div class="dp-config__row">
+                <label>Rows</label>
+                <input type="number" name="sourceRows" min="1" step="1" value="{{config.sourceRows}}" />
+            </div>
+        </div>
+
+        <div class="dp-config__autoslice-generate">
+            <button type="button" data-action="autoSlice" class="dp-config__btn-generate">
+                <i class="fas fa-cut"></i> Generate Tiles
+            </button>
+        </div>
+
     </div>
 
 </form>

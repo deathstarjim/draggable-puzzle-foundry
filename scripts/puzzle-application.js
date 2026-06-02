@@ -27,11 +27,24 @@ function normalizePuzzleDefinition(definition)
         }
     }
 
-    normalizedTiles = normalizedTiles.map((tile, index) => ({
-        id: tile?.id ?? `tile-${index + 1}`,
-        label: tile?.label ?? `Tile ${index + 1}`,
-        image: tile?.image ?? "icons/svg/d20-grey.svg"
-    }));
+    normalizedTiles = normalizedTiles.map((tile, index) =>
+    {
+        const isSlice = Boolean(tile?.sliceImage);
+        const base = {
+            id: tile?.id ?? `tile-${index + 1}`,
+            label: tile?.label ?? (isSlice ? "" : `Tile ${index + 1}`),
+            image: tile?.image ?? (isSlice ? "" : "icons/svg/d20-grey.svg")
+        };
+        if (isSlice)
+        {
+            base.sliceImage = tile.sliceImage;
+            base.sliceCols = Number(tile.sliceCols) || 1;
+            base.sliceRows = Number(tile.sliceRows) || 1;
+            base.sliceCol = Number(tile.sliceCol) || 0;
+            base.sliceRow = Number(tile.sliceRow) || 0;
+        }
+        return base;
+    });
 
     const defaultSolution = normalizedTiles.map(t => t.id);
     const solution = Array.isArray(definition.solution) && definition.solution.length === normalizedTiles.length
@@ -54,12 +67,30 @@ function normalizePuzzleDefinition(definition)
         shuffle: Boolean(definition.shuffle),
         closeOnSolve: definition.closeOnSolve !== false,
         columns,
+        sliceTileAspect: typeof definition.sliceTileAspect === "number" ? definition.sliceTileAspect : null,
         tiles: normalizedTiles,
         solution
     };
 }
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+/**
+ * Returns an inline CSS style string that crops the source image to the tile's grid position,
+ * or null if the tile has no slice data.
+ */
+function tileSliceStyle(tile)
+{
+    if (!tile?.sliceImage) return null;
+    const cols = Number(tile.sliceCols) || 1;
+    const rows = Number(tile.sliceRows) || 1;
+    const col = Number(tile.sliceCol) || 0;
+    const row = Number(tile.sliceRow) || 0;
+    const px = cols > 1 ? ((col / (cols - 1)) * 100).toFixed(3) + "%" : "0%";
+    const py = rows > 1 ? ((row / (rows - 1)) * 100).toFixed(3) + "%" : "0%";
+    const src = tile.sliceImage.replace(/\\/g, "/").replace(/'/g, "%27").replace(/"/g, "%22");
+    return `background-image:url('${src}');background-size:${cols * 100}% ${rows * 100}%;background-position:${px} ${py};background-repeat:no-repeat;`;
+}
 
 export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor(puzzleDefinition, options = {})
@@ -112,7 +143,7 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     static DEFAULT_OPTIONS = {
-        id: "draggable-puzzle",
+        id: "draggable-puzzle-foundry",
         classes: [],
         window: {
             title: "Draggable Puzzle",
@@ -127,7 +158,7 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
 
     static PARTS = {
         content: {
-            template: "modules/draggable-puzzle/templates/puzzle-ui.hbs"
+            template: "modules/draggable-puzzle-foundry/templates/puzzle-ui.hbs"
         }
     };
 
@@ -190,15 +221,22 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
     {
         const tilesById = new Map(this.puzzle.tiles.map(t => [t.id, t]));
 
+        const withSlice = (tile) => tile ? { ...tile, sliceStyle: tileSliceStyle(tile) } : null;
+
         const trayTiles = this.dpState.trayPieceIds
             .map(id => tilesById.get(id))
-            .filter(Boolean);
+            .filter(Boolean)
+            .map(withSlice);
 
         const slots = this.dpState.slotPieceIds.map((id, slotIndex) =>
         {
-            const tile = id ? tilesById.get(id) : null;
-            return { slotIndex, tile };
+            const tile = id ? tilesById.get(id) ?? null : null;
+            return { slotIndex, tile: withSlice(tile) };
         });
+
+        const sliceTileHeight = this.puzzle.sliceTileAspect
+            ? Math.round(150 * this.puzzle.sliceTileAspect)
+            : null;
 
         return {
             title: this.puzzle.title,
@@ -206,6 +244,7 @@ export class PuzzleApplication extends HandlebarsApplicationMixin(ApplicationV2)
             columns: this.puzzle.columns,
             imageFit: this.puzzle.imageFit ?? "contain",
             canConfigure: Boolean(game.user?.isGM),
+            sliceTileHeight,
             trayTiles,
             slots
         };

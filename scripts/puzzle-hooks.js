@@ -119,9 +119,10 @@ export function registerPuzzleHooks()
             setTimeout(() => redirecting.delete(key), 1000);
 
             // Close the system sheet and open our editor.
+            // Note: { submit: false } is ignored by ApplicationV2 sheets (v13+) but harmless.
             setTimeout(async () =>
             {
-                try { await sheet.close({ submit: false }); } catch { /* ignore */ }
+                try { await sheet.close(); } catch { /* ignore */ }
                 try { await game.draggablePuzzle?.openConfigForItem?.(item.uuid); } catch { /* ignore */ }
             }, 0);
         } catch
@@ -130,11 +131,12 @@ export function registerPuzzleHooks()
         }
     }
 
-    // Hook-name fallbacks (Foundry core + common dnd5e sheet names)
+    // Hook-name fallbacks (Foundry core + common dnd5e sheet names, including dnd5e v4 ApplicationV2 sheet)
     Hooks.on("renderItemSheet", (sheet) => void redirectItemSheet(sheet));
     Hooks.on("renderItemSheet5e", (sheet) => void redirectItemSheet(sheet));
     Hooks.on("renderItemSheet5e2", (sheet) => void redirectItemSheet(sheet));
     Hooks.on("renderItemSheet5eLegacy", (sheet) => void redirectItemSheet(sheet));
+    Hooks.on("renderItemSheet5eV2", (sheet) => void redirectItemSheet(sheet));
 }
 
 Hooks.once("ready", () => registerPuzzleHooks());
