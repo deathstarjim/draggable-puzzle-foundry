@@ -53,11 +53,9 @@ jobs:
           zip -r ./module.zip \
             module.json \
             README.md \
-            README.html \
-            CHANGELOG.md \
-            LICENSE \
             scripts \
-            styles
+            styles \
+            templates
 
       - name: Verify release files
         shell: bash
