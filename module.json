@@ -20,7 +20,7 @@
   ],
   "packs": [],
   "languages": [],
-  "url": "",
-  "manifest": "",
-  "download": ""
+  "url": "https://github.com/deathstarjim/draggable-puzzle-foundry",
+  "manifest": "https://github.com/deathstarjim/draggable-puzzle-foundry/releases/latest/download/module.json",
+  "download": "https://github.com/deathstarjim/draggable-puzzle-foundry/releases/latest/download/module.zip"
 }

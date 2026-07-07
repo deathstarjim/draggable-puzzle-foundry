@@ -1,0 +1,79 @@
+name: Release Creation
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to package and update
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract tag version number
+        id: get_version
+        shell: bash
+        run: echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Substitute release manifest fields
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+          REPOSITORY_URL: https://github.com/${{ github.repository }}
+          MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/module.json
+          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ env.RELEASE_TAG }}/module.zip
+        shell: bash
+        run: |
+          jq \
+            --arg version "$VERSION" \
+            --arg url "$REPOSITORY_URL" \
+            --arg manifest "$MANIFEST_URL" \
+            --arg download "$DOWNLOAD_URL" \
+            '.version = $version
+              | .url = $url
+              | .manifest = $manifest
+              | .download = $download' \
+            module.json > module.release.json
+          mv module.release.json module.json
+
+      - name: Create module archive
+        run: |
+          zip -r ./module.zip \
+            module.json \
+            README.md \
+            README.html \
+            CHANGELOG.md \
+            LICENSE \
+            scripts \
+            styles
+
+      - name: Verify release files
+        shell: bash
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          test "$(jq -r '.version' module.json)" = "$VERSION"
+          unzip -Z1 module.zip | grep -Fxq "module.json"
+          test "$(unzip -Z1 module.zip | grep -c '^module.json$')" = "1"
+          unzip -p module.zip module.json | jq -e --arg version "$VERSION" '.version == $version' > /dev/null
+
+      - name: Upload release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            ./module.json \
+            ./module.zip \
+            --clobber
